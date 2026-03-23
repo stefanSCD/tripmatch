@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: tripmatch
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
