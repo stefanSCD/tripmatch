@@ -10,7 +10,7 @@ Frontend application for a travel marketplace platform connecting travelers and 
 - Supported roles: `traveler`, `agency`, `admin`.
 - Protected routes and automatic role-based dashboard redirects.
 
-![Login](docs/screenshots/Screenshot%202026-05-21%20092328.png)
+![Login](tripmatch_frontend/docs/screenshots/Screenshot%202026-05-21%20092328.png)
 ![Register](docs/screenshots/Screenshot%202026-05-21%20092345.png)
 
 ### 2) Role-based dashboards
