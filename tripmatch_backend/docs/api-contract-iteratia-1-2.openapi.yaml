@@ -1,0 +1,2566 @@
+openapi: 3.0.3
+info:
+  title: TripMatch Backend API Contract (Iteratia 1 + 2 + 3)
+  version: "iter1-iter2-iter3"
+  description: >
+    Contract extras direct din codebase (controller + DTO + validari service).
+    Toate endpointurile protejate folosesc Basic Auth, exceptand /api/auth/**.
+servers:
+  - url: /
+security:
+  - basicAuth: []
+tags:
+  - name: Auth
+  - name: Profile
+  - name: Admin
+  - name: Trip
+  - name: Destination
+  - name: Activity
+  - name: Budget
+  - name: AI Draft
+  - name: Request
+  - name: Offer
+  - name: Notification
+paths:
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Register account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              email: "user@example.com"
+              password: "secret123"
+              role: "USER"
+              phone: "+40712345678"
+              city: "Bucharest"
+              country: "Romania"
+              firstName: "Ion"
+              lastName: "Popescu"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+              example:
+                accountId: 12
+                message: "Account registered successfully!"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Login (credential check)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: "user@example.com"
+              password: "secret123"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+              example:
+                accountId: 12
+                message: "Login successful."
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /api/accounts/{accountId}/profile:
+    parameters:
+      - $ref: "#/components/parameters/accountIdPath"
+    get:
+      tags: [Profile]
+      summary: Get profile by accountId (owner only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Profile]
+      summary: Update profile (owner or admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+            example:
+              phone: "+40712345678"
+              city: "Cluj-Napoca"
+              country: "Romania"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/admin/accounts:
+    get:
+      tags: [Admin]
+      summary: List accounts (admin only)
+      parameters:
+        - name: isActive
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Search text; blank string is treated as null.
+        - name: role
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [USER, AGENCY, ADMIN]
+          description: Case-insensitive. Any other value -> 400 "Invalid role filter".
+        - $ref: "#/components/parameters/pageParamDefault0"
+        - $ref: "#/components/parameters/sizeParamDefault20"
+        - $ref: "#/components/parameters/sortParamAdminAccounts"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageAdminAccountListItemResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/accounts/{accountId}/block:
+    parameters:
+      - $ref: "#/components/parameters/positiveAccountIdPath"
+    patch:
+      tags: [Admin]
+      summary: Block account (admin only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BlockAccountResponse"
+              example:
+                message: "Account blocked successfully!"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/admin/accounts/{accountId}/unblock:
+    parameters:
+      - $ref: "#/components/parameters/positiveAccountIdPath"
+    patch:
+      tags: [Admin]
+      summary: Unblock account (admin only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnblockAccountResponse"
+              example:
+                message: "Account unblocked successfully!"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/admin/agencies/pending:
+    get:
+      tags: [Admin]
+      summary: Pending agency approvals (admin only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApprovalResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/agencies/approve:
+    patch:
+      tags: [Admin]
+      summary: Approve one agency (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/admin/agencies/approve/bulk:
+    patch:
+      tags: [Admin]
+      summary: Approve many agencies (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkApprovalRequest"
+            example:
+              accountIds: [10, 11, 12]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApprovalResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/trips:
+    get:
+      tags: [Trip]
+      summary: List trips for authenticated user
+      parameters:
+        - $ref: "#/components/parameters/pageParamDefault0"
+        - $ref: "#/components/parameters/sizeParamDefault10"
+        - $ref: "#/components/parameters/sortParamTrips"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageTripListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Trip]
+      summary: Create trip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTripRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/trips/{tripId}:
+    parameters:
+      - $ref: "#/components/parameters/tripIdPath"
+    get:
+      tags: [Trip]
+      summary: Get trip detail
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripDetailResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Trip]
+      summary: Update trip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTripRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Trip]
+      summary: Delete trip
+      responses:
+        "204":
+          description: No Content
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/trips/{tripId}/budget:
+    parameters:
+      - $ref: "#/components/parameters/positiveTripIdPath"
+    get:
+      tags: [Budget]
+      summary: Get trip budget
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripBudgetResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      tags: [Budget]
+      summary: Upsert trip budget + optional category budgets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertTripBudgetRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripBudgetResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/trips/{tripId}/destinations:
+    parameters:
+      - $ref: "#/components/parameters/tripIdPath"
+    get:
+      tags: [Destination]
+      summary: List destinations in trip
+      parameters:
+        - $ref: "#/components/parameters/pageParamDefault0"
+        - $ref: "#/components/parameters/sizeParamDefault10"
+        - $ref: "#/components/parameters/sortParamDestinations"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageDestinationListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Destination]
+      summary: Create destination
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDestinationRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DestinationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/trips/{tripId}/destinations/{destinationId}:
+    parameters:
+      - $ref: "#/components/parameters/tripIdPath"
+      - $ref: "#/components/parameters/destinationIdPath"
+    get:
+      tags: [Destination]
+      summary: Get destination detail
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DestinationDetailResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Destination]
+      summary: Update destination
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDestinationRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DestinationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Destination]
+      summary: Delete destination
+      responses:
+        "204":
+          description: No Content
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/trips/{tripId}/destinations/{destinationId}/activities:
+    parameters:
+      - $ref: "#/components/parameters/tripIdPath"
+      - $ref: "#/components/parameters/destinationIdPath"
+    get:
+      tags: [Activity]
+      summary: List activities
+      parameters:
+        - $ref: "#/components/parameters/pageParamDefault0"
+        - $ref: "#/components/parameters/sizeParamDefault10"
+        - $ref: "#/components/parameters/sortParamActivities"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageActivityListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [Activity]
+      summary: Create activity
+      description: >
+        Daca allowOverlap != true, backend verifica suprapuneri orare in aceeasi zi;
+        la conflict returneaza 409 cu lista id-urilor in mesaj.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateActivityRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/trips/{tripId}/destinations/{destinationId}/activities/reorder:
+    parameters:
+      - $ref: "#/components/parameters/tripIdPath"
+      - $ref: "#/components/parameters/destinationIdPath"
+    put:
+      tags: [Activity]
+      summary: Reorder activities (UC-08)
+      description: >
+        orderedActivityIds trebuie sa contina TOATE activitatile destinatiei, fara duplicate.
+        Reordonarea este aplicata per zi (activityDate). Raspunsul are id = null.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReorderActivitiesRequest"
+            example:
+              orderedActivityIds: [101, 104, 102, 103]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityResponse"
+              example:
+                id: null
+                message: "Activities reordered successfully!"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/trips/{tripId}/destinations/{destinationId}/activities/{activityId}:
+    parameters:
+      - $ref: "#/components/parameters/tripIdPath"
+      - $ref: "#/components/parameters/destinationIdPath"
+      - $ref: "#/components/parameters/activityIdPath"
+    get:
+      tags: [Activity]
+      summary: Get activity detail
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityDetailResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Activity]
+      summary: Update activity
+      description: >
+        Daca allowOverlap != true, backend verifica suprapuneri dupa valorile efective (request + existing).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateActivityRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      tags: [Activity]
+      summary: Delete activity
+      responses:
+        "204":
+          description: No Content
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/trips/{tripId}/destinations/{destinationId}/activities/{activityId}/duplicate:
+    parameters:
+      - $ref: "#/components/parameters/tripIdPath"
+      - $ref: "#/components/parameters/destinationIdPath"
+      - $ref: "#/components/parameters/activityIdPath"
+    post:
+      tags: [Activity]
+      summary: Duplicate activity (UC-08)
+      description: >
+        request body este optional. Daca lipseste, copiaza in aceeasi data/ora.
+        Daca allowOverlap != true, backend verifica suprapuneri.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DuplicateActivityRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivityResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/trips/ai/generate:
+    post:
+      tags: [AI Draft]
+      summary: Generate AI draft trip
+      description: >
+        destinationHint sau tripType trebuie furnizat.
+        Erorile OpenAI sunt mapate la 503.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateAiDraftRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiDraftDetailResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/trips/ai/drafts:
+    get:
+      tags: [AI Draft]
+      summary: List AI drafts (current user)
+      parameters:
+        - $ref: "#/components/parameters/pageParamDefault0"
+        - $ref: "#/components/parameters/sizeParamDefault10"
+        - $ref: "#/components/parameters/sortParamAiDrafts"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageAiDraftListItemResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/trips/ai/drafts/{id}:
+    parameters:
+      - $ref: "#/components/parameters/positiveIdPath"
+    get:
+      tags: [AI Draft]
+      summary: Get draft by id
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiDraftDetailResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [AI Draft]
+      summary: Update AI draft
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAiDraftRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiDraftDetailResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/trips/ai/drafts/{id}/save-as-trip:
+    parameters:
+      - $ref: "#/components/parameters/positiveIdPath"
+    post:
+      tags: [AI Draft]
+      summary: Persist draft as real trip
+      description: >
+        request body este optional.
+        Daca tripTitleOverride este trimis, trebuie sa nu fie blank dupa trim.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveDraftAsTripRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TripResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/trips/ai/drafts/{id}/regenerate-day:
+    parameters:
+      - $ref: "#/components/parameters/positiveIdPath"
+    post:
+      tags: [AI Draft]
+      summary: Regenerate one day from draft
+      description: Erorile OpenAI sunt mapate la 503.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegenerateDraftDayRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiDraftDetailResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /api/trips/{tripId}/requests/publish:
+    parameters:
+      - $ref: "#/components/parameters/positiveTripIdPath"
+    post:
+      tags: [Request]
+      summary: Publish or republish a travel request for a trip (user only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishTravelRequestRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TravelRequestResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/requests/{requestId}/unpublish:
+    parameters:
+      - $ref: "#/components/parameters/positiveRequestIdPath"
+    patch:
+      tags: [Request]
+      summary: Unpublish (close) a travel request (user owner only)
+      description: >
+        Request status devine CLOSED.
+        Ofertele cu status DRAFT/READY/SENT sunt marcate automat EXPIRED.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TravelRequestResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/requests:
+    get:
+      tags: [Request]
+      summary: List published travel requests for agencies (UC-11)
+      parameters:
+        - name: destination
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 512
+        - name: minBudget
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: maxBudget
+          in: query
+          required: false
+          schema:
+            type: number
+            minimum: 0
+        - name: startFrom
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: endTo
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: flexibleDate
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - $ref: "#/components/parameters/pageParamDefault0"
+        - $ref: "#/components/parameters/sizeParamDefault20"
+        - $ref: "#/components/parameters/sortParamRequests"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageTravelRequestListItemResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/requests/{requestId}:
+    parameters:
+      - $ref: "#/components/parameters/positiveRequestIdPath"
+    get:
+      tags: [Request]
+      summary: Get published request details for agency
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TravelRequestDetailResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/my/requests:
+    get:
+      tags: [Request]
+      summary: List my travel requests (user only)
+      parameters:
+        - $ref: "#/components/parameters/pageParamDefault0"
+        - $ref: "#/components/parameters/sizeParamDefault20"
+        - $ref: "#/components/parameters/sortParamRequests"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageTravelRequestListItemResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/my/requests/{requestId}:
+    parameters:
+      - $ref: "#/components/parameters/positiveRequestIdPath"
+    get:
+      tags: [Request]
+      summary: Get my travel request details (user owner only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TravelRequestDetailResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/requests/{requestId}/offers:
+    parameters:
+      - $ref: "#/components/parameters/positiveRequestIdPath"
+    post:
+      tags: [Offer]
+      summary: Create offer on a published request (agency only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOfferRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfferResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/offers/{offerId}:
+    parameters:
+      - $ref: "#/components/parameters/positiveOfferIdPath"
+    get:
+      tags: [Offer]
+      summary: Get offer details (agency owner or user owner via request)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfferDetailResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Offer]
+      summary: Update offer (agency owner)
+      description: >
+        Permis doar daca oferta curenta este DRAFT sau READY.
+        In request, status poate fi doar DRAFT sau READY.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateOfferRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfferResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Offer]
+      summary: Delete offer (agency owner)
+      description: Permis doar pentru status DRAFT sau READY.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfferResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/offers/{offerId}/send:
+    parameters:
+      - $ref: "#/components/parameters/positiveOfferIdPath"
+    post:
+      tags: [Offer]
+      summary: Send offer (agency owner)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfferResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/offers/{offerId}/accept:
+    parameters:
+      - $ref: "#/components/parameters/positiveOfferIdPath"
+    post:
+      tags: [Offer]
+      summary: Accept offer (user owner)
+      description: >
+        Endpoint protejat contra race condition prin locking pesimist pe ofertele aceluiasi request.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfferResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/offers/{offerId}/reject:
+    parameters:
+      - $ref: "#/components/parameters/positiveOfferIdPath"
+    post:
+      tags: [Offer]
+      summary: Reject offer (user owner)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectOfferRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfferResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/offers/agency:
+    get:
+      tags: [Offer]
+      summary: List offers created by current agency
+      parameters:
+        - $ref: "#/components/parameters/pageParamDefault0"
+        - $ref: "#/components/parameters/sizeParamDefault20"
+        - $ref: "#/components/parameters/sortParamOffers"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageOfferListItemResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/offers/user:
+    get:
+      tags: [Offer]
+      summary: List offers received by current user (through own requests)
+      parameters:
+        - $ref: "#/components/parameters/pageParamDefault0"
+        - $ref: "#/components/parameters/sizeParamDefault20"
+        - $ref: "#/components/parameters/sortParamOffers"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageOfferListItemResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/notifications:
+    get:
+      tags: [Notification]
+      summary: List my notifications
+      parameters:
+        - $ref: "#/components/parameters/pageParamDefault0"
+        - $ref: "#/components/parameters/sizeParamDefault20"
+        - $ref: "#/components/parameters/sortParamNotifications"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageNotificationListItemResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/notifications/unread-count:
+    get:
+      tags: [Notification]
+      summary: Get unread notifications count
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnreadNotificationsCountResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/notifications/{notificationId}/read:
+    parameters:
+      - $ref: "#/components/parameters/positiveNotificationIdPath"
+    patch:
+      tags: [Notification]
+      summary: Mark single notification as read
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/notifications/read:
+    patch:
+      tags: [Notification]
+      summary: Mark selected notifications as read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkNotificationsReadRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/notifications/read-all:
+    patch:
+      tags: [Notification]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+  parameters:
+    pageParamDefault0:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    sizeParamDefault10:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 10
+    sizeParamDefault20:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 20
+    sortParamTrips:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        default: "createdAt,desc"
+      description: Spring pageable sort, ex `createdAt,desc`.
+    sortParamDestinations:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        default: "createdAt,desc"
+      description: Spring pageable sort, ex `createdAt,desc`.
+    sortParamActivities:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: array
+        items:
+          type: string
+      style: form
+      explode: true
+      description: >
+        Default server sort: activityDate asc + displayOrder asc.
+        Override example: `?sort=activityDate,asc&sort=displayOrder,asc`.
+    sortParamAiDrafts:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        default: "updatedAt,desc"
+      description: Spring pageable sort, ex `updatedAt,desc`.
+    sortParamRequests:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        default: "publishedAt,desc"
+      description: Spring pageable sort, ex `publishedAt,desc`.
+    sortParamOffers:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        default: "createdAt,desc"
+      description: Spring pageable sort, ex `createdAt,desc`.
+    sortParamNotifications:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        default: "createdAt,desc"
+      description: Spring pageable sort, ex `createdAt,desc`.
+    sortParamAdminAccounts:
+      name: sort
+      in: query
+      required: false
+      schema:
+        type: string
+        default: "createdAt,desc"
+      description: Spring pageable sort, ex `createdAt,desc`.
+    accountIdPath:
+      name: accountId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    positiveAccountIdPath:
+      name: accountId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    tripIdPath:
+      name: tripId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    positiveTripIdPath:
+      name: tripId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    destinationIdPath:
+      name: destinationId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    activityIdPath:
+      name: activityId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    positiveRequestIdPath:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    positiveOfferIdPath:
+      name: offerId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    positiveNotificationIdPath:
+      name: notificationId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+    positiveIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+
+  responses:
+    BadRequest:
+      description: >
+        Bad Request. In acest backend, body-ul poate fi:
+        1) string simplu (Business error) sau
+        2) array de stringuri (Bean validation errors).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationOrMessageError"
+    Unauthorized:
+      description: Missing/invalid Basic Auth credentials.
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            type: string
+          example: "You cannot edit another user's profile"
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            type: string
+          example: "Trip not found!"
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            type: string
+          example: "Activity overlaps with existing activities: [11, 15]. Retry with allowOverlap=true if intentional."
+    ServiceUnavailable:
+      description: External AI service unavailable
+      content:
+        application/json:
+          schema:
+            type: string
+          example: "OpenAI service is temporarily unavailable. Please retry."
+
+  schemas:
+    ValidationOrMessageError:
+      oneOf:
+        - type: string
+        - type: array
+          items:
+            type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        accountId:
+          type: integer
+          format: int64
+        message:
+          type: string
+      required: [accountId, message]
+
+    RegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          pattern: "^.*\\S.*$"
+        password:
+          type: string
+          minLength: 6
+          pattern: "^.*\\S.*$"
+        role:
+          type: string
+          pattern: "^.*\\S.*$"
+          description: >
+            Must exist in roles table. Public registration rejects ADMIN role.
+        phone:
+          type: string
+          minLength: 5
+          maxLength: 30
+          pattern: "^.*\\S.*$"
+        city:
+          type: string
+          maxLength: 50
+        country:
+          type: string
+          maxLength: 50
+        firstName:
+          type: string
+          maxLength: 155
+        lastName:
+          type: string
+          maxLength: 155
+        agencyName:
+          type: string
+          maxLength: 155
+        agencyDescription:
+          type: string
+      required: [email, password, role, phone]
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          pattern: "^.*\\S.*$"
+        password:
+          type: string
+          pattern: "^.*\\S.*$"
+      required: [email, password]
+
+    UpdateProfileRequest:
+      type: object
+      description: At least one field must be non-blank/non-null.
+      properties:
+        phone:
+          type: string
+          minLength: 5
+          maxLength: 30
+        profilePictureUrl:
+          type: string
+          maxLength: 500
+        city:
+          type: string
+          maxLength: 50
+        country:
+          type: string
+          maxLength: 50
+        agencyDescription:
+          type: string
+          maxLength: 1000
+
+    ProfileResponse:
+      type: object
+      properties:
+        firstName: { type: string, nullable: true }
+        lastName: { type: string, nullable: true }
+        phone: { type: string, nullable: true }
+        profilePictureUrl: { type: string, nullable: true }
+        city: { type: string, nullable: true }
+        country: { type: string, nullable: true }
+        agencyDescription: { type: string, nullable: true }
+        agencyName: { type: string, nullable: true }
+        isApproved: { type: boolean, nullable: true }
+
+    AdminAccountListItemResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        email: { type: string }
+        role: { type: string }
+        isActive: { type: boolean }
+        isApproved: { type: boolean }
+        firstName: { type: string, nullable: true }
+        lastName: { type: string, nullable: true }
+        agencyName: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time, nullable: true }
+        lastLoginAt: { type: string, format: date-time, nullable: true }
+
+    ApprovalRequest:
+      type: object
+      properties:
+        accountId:
+          type: integer
+          format: int64
+          minimum: 1
+      required: [accountId]
+
+    BulkApprovalRequest:
+      type: object
+      properties:
+        accountIds:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            format: int64
+            minimum: 1
+      required: [accountIds]
+
+    ApprovalResponse:
+      type: object
+      properties:
+        accountId: { type: integer, format: int64 }
+        approved: { type: boolean }
+        message: { type: string }
+      required: [accountId, approved, message]
+
+    BlockAccountResponse:
+      type: object
+      properties:
+        message: { type: string }
+      required: [message]
+
+    UnblockAccountResponse:
+      type: object
+      properties:
+        message: { type: string }
+      required: [message]
+
+    TripStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED]
+
+    BudgetCategory:
+      type: string
+      enum: [TRANSPORT, ACCOMMODATION, FOOD, ACTIVITIES]
+
+    CreateTripRequest:
+      type: object
+      description: endDate must be strictly after startDate.
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 255
+          pattern: "^.*\\S.*$"
+        description:
+          type: string
+          nullable: true
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        createdWithAi:
+          type: boolean
+      required: [title, startDate, endDate, createdWithAi]
+
+    UpdateTripRequest:
+      type: object
+      description: If both dates are present, endDate cannot be before startDate.
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 255
+        description:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+
+    TripResponse:
+      type: object
+      properties:
+        tripId: { type: integer, format: int64 }
+        message: { type: string }
+      required: [tripId, message]
+
+    TripListResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        status:
+          $ref: "#/components/schemas/TripStatus"
+
+    TripDetailResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        createdWithAi: { type: boolean }
+        status:
+          $ref: "#/components/schemas/TripStatus"
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CreateDestinationRequest:
+      type: object
+      description: endDate cannot be before startDate.
+      properties:
+        city:
+          type: string
+          minLength: 2
+          maxLength: 125
+          pattern: "^.*\\S.*$"
+        country:
+          type: string
+          minLength: 2
+          maxLength: 125
+          pattern: "^.*\\S.*$"
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        notes:
+          type: string
+      required: [city, country, startDate, endDate]
+
+    UpdateDestinationRequest:
+      type: object
+      description: If both dates are present, endDate cannot be before startDate.
+      properties:
+        city:
+          type: string
+          minLength: 2
+          maxLength: 125
+        country:
+          type: string
+          minLength: 2
+          maxLength: 125
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    DestinationResponse:
+      type: object
+      properties:
+        destinationId: { type: integer, format: int64 }
+        message: { type: string }
+      required: [destinationId, message]
+
+    DestinationListResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        city: { type: string }
+        country: { type: string }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        notes: { type: string, nullable: true }
+
+    DestinationDetailResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        city: { type: string }
+        country: { type: string }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        notes: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    LocalTime:
+      type: string
+      pattern: "^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d(\\.\\d{1,9})?)?$"
+      example: "09:30:00"
+
+    CreateActivityRequest:
+      type: object
+      description: >
+        durationMinutes is required in practice because it is primitive int + @Positive.
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          pattern: "^.*\\S.*$"
+        location:
+          type: string
+          maxLength: 255
+          pattern: "^.*\\S.*$"
+        activityDate:
+          type: string
+          format: date
+        startTime:
+          $ref: "#/components/schemas/LocalTime"
+        durationMinutes:
+          type: integer
+          minimum: 1
+        estimatedCost:
+          type: number
+          minimum: 0.01
+        notes:
+          type: string
+        category:
+          $ref: "#/components/schemas/BudgetCategory"
+        allowOverlap:
+          type: boolean
+          nullable: true
+      required: [title, location, activityDate, startTime, durationMinutes, estimatedCost]
+
+    UpdateActivityRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        location:
+          type: string
+          maxLength: 255
+        activityDate:
+          type: string
+          format: date
+        startTime:
+          $ref: "#/components/schemas/LocalTime"
+        durationMinutes:
+          type: integer
+          minimum: 1
+        estimatedCost:
+          type: number
+          minimum: 0.01
+        notes:
+          type: string
+        category:
+          $ref: "#/components/schemas/BudgetCategory"
+        allowOverlap:
+          type: boolean
+          nullable: true
+
+    ReorderActivitiesRequest:
+      type: object
+      properties:
+        orderedActivityIds:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            format: int64
+            minimum: 1
+      required: [orderedActivityIds]
+
+    DuplicateActivityRequest:
+      type: object
+      properties:
+        activityDate:
+          type: string
+          format: date
+        startTime:
+          $ref: "#/components/schemas/LocalTime"
+        allowOverlap:
+          type: boolean
+
+    ActivityResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          nullable: true
+          description: null for reorder endpoint.
+        message:
+          type: string
+      required: [message]
+
+    ActivityListResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        location: { type: string }
+        activityDate: { type: string, format: date }
+        startTime:
+          $ref: "#/components/schemas/LocalTime"
+        durationMinutes: { type: integer }
+        displayOrder: { type: integer }
+        category:
+          $ref: "#/components/schemas/BudgetCategory"
+        estimatedCost: { type: number }
+        notes: { type: string, nullable: true }
+
+    ActivityDetailResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        location: { type: string }
+        activityDate: { type: string, format: date }
+        startTime:
+          $ref: "#/components/schemas/LocalTime"
+        durationMinutes: { type: integer, nullable: true }
+        displayOrder: { type: integer, nullable: true }
+        category:
+          $ref: "#/components/schemas/BudgetCategory"
+        estimatedCost: { type: number, nullable: true }
+        notes: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    UpsertTripBudgetCategoryRequest:
+      type: object
+      properties:
+        category:
+          $ref: "#/components/schemas/BudgetCategory"
+        allocatedAmount:
+          type: number
+          minimum: 0
+        spentTotal:
+          type: number
+          minimum: 0
+          nullable: true
+      required: [category, allocatedAmount]
+
+    UpsertTripBudgetRequest:
+      type: object
+      description: >
+        If categories is present, duplicate category values are rejected (400),
+        and existing categories missing from payload are deleted.
+      properties:
+        totalBudget:
+          type: number
+          minimum: 0.01
+        currency:
+          type: string
+          maxLength: 64
+          pattern: "^.*\\S.*$"
+        spentTotal:
+          type: number
+          minimum: 0
+          nullable: true
+        categories:
+          type: array
+          maxItems: 20
+          nullable: true
+          items:
+            $ref: "#/components/schemas/UpsertTripBudgetCategoryRequest"
+      required: [totalBudget, currency]
+
+    TripBudgetCategoryResponse:
+      type: object
+      properties:
+        category:
+          $ref: "#/components/schemas/BudgetCategory"
+        allocatedAmount: { type: number }
+        estimatedTotal: { type: number }
+        spentTotal: { type: number }
+        remainingByEstimated: { type: number }
+        remainingBySpent: { type: number }
+        estimatedProgressPct: { type: number }
+        spentProgressPct: { type: number }
+
+    TripBudgetResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        tripId: { type: integer, format: int64 }
+        totalBudget: { type: number }
+        currency: { type: string }
+        estimatedTotal: { type: number }
+        spentTotal: { type: number }
+        remainingByEstimated: { type: number }
+        remainingBySpent: { type: number }
+        estimatedProgressPct: { type: number }
+        spentProgressPct: { type: number }
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripBudgetCategoryResponse"
+
+    GenerateAiDraftRequest:
+      type: object
+      description: >
+        Either destinationHint or tripType must be provided.
+        endDate cannot be before startDate.
+      properties:
+        destinationHint:
+          type: string
+          maxLength: 255
+        tripType:
+          type: string
+          maxLength: 100
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        budgetTotal:
+          type: number
+          minimum: 0.01
+        currency:
+          type: string
+          maxLength: 64
+          pattern: "^.*\\S.*$"
+        interests:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 100
+            pattern: "^.*\\S.*$"
+        pace:
+          type: string
+          maxLength: 32
+          pattern: "^.*\\S.*$"
+        notes:
+          type: string
+          maxLength: 2000
+      required: [startDate, endDate, budgetTotal, currency, pace]
+
+    UpdateAiDraftRequest:
+      type: object
+      description: At least one field is required (title or content).
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 255
+        content:
+          $ref: "#/components/schemas/AiDraftContentDto"
+
+    SaveDraftAsTripRequest:
+      type: object
+      properties:
+        tripTitleOverride:
+          type: string
+          minLength: 2
+          maxLength: 255
+          nullable: true
+          description: Also rejected if blank after trim.
+
+    RegenerateDraftDayRequest:
+      type: object
+      properties:
+        dayNumber:
+          type: integer
+          minimum: 1
+        instruction:
+          type: string
+          maxLength: 1000
+      required: [dayNumber]
+
+    AiDraftActivityDto:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          pattern: "^.*\\S.*$"
+        location:
+          type: string
+          maxLength: 255
+          pattern: "^.*\\S.*$"
+        activityDate:
+          type: string
+          format: date
+        startTime:
+          $ref: "#/components/schemas/LocalTime"
+        durationMinutes:
+          type: integer
+          minimum: 1
+        estimatedCost:
+          type: number
+          minimum: 0.01
+        notes:
+          type: string
+          maxLength: 2000
+      required: [title, location, activityDate, startTime, durationMinutes, estimatedCost]
+
+    AiDraftDayDto:
+      type: object
+      properties:
+        dayNumber:
+          type: integer
+          minimum: 1
+        date:
+          type: string
+          format: date
+        summary:
+          type: string
+          maxLength: 2000
+        estimatedCostTotal:
+          type: number
+          minimum: 0
+          nullable: true
+        activities:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/AiDraftActivityDto"
+      required: [dayNumber, date, activities]
+
+    AiDraftContentDto:
+      type: object
+      description: endDate cannot be before startDate.
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 255
+          pattern: "^.*\\S.*$"
+        description:
+          type: string
+          maxLength: 4000
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        primaryDestination:
+          type: string
+          maxLength: 255
+          pattern: "^.*\\S.*$"
+        estimatedTotal:
+          type: number
+          minimum: 0
+        currency:
+          type: string
+          maxLength: 64
+          pattern: "^.*\\S.*$"
+        days:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/AiDraftDayDto"
+      required: [title, startDate, endDate, primaryDestination, estimatedTotal, currency, days]
+
+    AiDraftListItemResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        currency: { type: string }
+        estimatedTotal: { type: number }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    AiDraftDetailResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        promptData:
+          $ref: "#/components/schemas/GenerateAiDraftRequest"
+        content:
+          $ref: "#/components/schemas/AiDraftContentDto"
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    PageAdminAccountListItemResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminAccountListItemResponse"
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        last: { type: boolean }
+      required: [content, page, size, totalElements, totalPages, last]
+
+    PageTripListResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/TripListResponse"
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        last: { type: boolean }
+      required: [content, page, size, totalElements, totalPages, last]
+
+    PageDestinationListResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/DestinationListResponse"
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        last: { type: boolean }
+      required: [content, page, size, totalElements, totalPages, last]
+
+    PageActivityListResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityListResponse"
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        last: { type: boolean }
+      required: [content, page, size, totalElements, totalPages, last]
+
+    PageAiDraftListItemResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/AiDraftListItemResponse"
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        last: { type: boolean }
+      required: [content, page, size, totalElements, totalPages, last]
+
+    TravelRequestStatus:
+      type: string
+      enum: [PUBLISHED, CLOSED]
+
+    OfferStatus:
+      type: string
+      enum: [DRAFT, READY, SENT, ACCEPTED, REJECTED, EXPIRED]
+
+    NotificationType:
+      type: string
+      enum: [OFFER_SENT, OFFER_ACCEPTED, OFFER_REJECTED]
+
+    PublishTravelRequestRequest:
+      type: object
+      description: budgetMin <= budgetMax; endDate >= startDate.
+      properties:
+        sharedPreferences:
+          type: string
+          maxLength: 4000
+          pattern: "^.*\\S.*$"
+        budgetMin:
+          type: number
+          minimum: 0
+        budgetMax:
+          type: number
+          minimum: 0
+        destinationSummary:
+          type: string
+          maxLength: 512
+          pattern: "^.*\\S.*$"
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        isFlexibleDate:
+          type: boolean
+      required: [sharedPreferences, budgetMin, budgetMax, destinationSummary, startDate, endDate, isFlexibleDate]
+
+    TravelRequestResponse:
+      type: object
+      properties:
+        requestId: { type: integer, format: int64 }
+        tripId: { type: integer, format: int64 }
+        status:
+          $ref: "#/components/schemas/TravelRequestStatus"
+        publishedAt: { type: string, format: date-time, nullable: true }
+        message: { type: string }
+      required: [requestId, tripId, status, message]
+
+    TravelRequestListItemResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        tripId: { type: integer, format: int64 }
+        destinationSummary: { type: string }
+        budgetMin: { type: number }
+        budgetMax: { type: number }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        isFlexibleDate: { type: boolean }
+        status:
+          $ref: "#/components/schemas/TravelRequestStatus"
+        publishedAt: { type: string, format: date-time }
+
+    TravelRequestDetailResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        tripId: { type: integer, format: int64 }
+        userAccountId: { type: integer, format: int64 }
+        sharedPreferences: { type: string }
+        budgetMin: { type: number }
+        budgetMax: { type: number }
+        destinationSummary: { type: string }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        isFlexibleDate: { type: boolean }
+        status:
+          $ref: "#/components/schemas/TravelRequestStatus"
+        publishedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CreateOfferRequest:
+      type: object
+      properties:
+        price:
+          type: number
+          minimum: 0.01
+        currency:
+          type: string
+          maxLength: 64
+          pattern: "^.*\\S.*$"
+        accommodationDetails:
+          type: string
+          maxLength: 512
+          pattern: "^.*\\S.*$"
+        transportDetails:
+          type: string
+          maxLength: 512
+          pattern: "^.*\\S.*$"
+        itinerarySummary:
+          type: string
+          nullable: true
+        conditions:
+          type: string
+          nullable: true
+        attachmentUrl:
+          type: string
+          maxLength: 1024
+          nullable: true
+      required: [price, currency, accommodationDetails, transportDetails]
+
+    UpdateOfferRequest:
+      type: object
+      description: At least one field must be provided.
+      properties:
+        price:
+          type: number
+          minimum: 0.01
+        currency:
+          type: string
+          maxLength: 64
+        accommodationDetails:
+          type: string
+          maxLength: 512
+        transportDetails:
+          type: string
+          maxLength: 512
+        itinerarySummary:
+          type: string
+        conditions:
+          type: string
+        attachmentUrl:
+          type: string
+          maxLength: 1024
+        status:
+          $ref: "#/components/schemas/OfferStatus"
+
+    RejectOfferRequest:
+      type: object
+      properties:
+        feedbackMessage:
+          type: string
+          maxLength: 4000
+          pattern: "^.*\\S.*$"
+      required: [feedbackMessage]
+
+    OfferResponse:
+      type: object
+      properties:
+        offerId: { type: integer, format: int64 }
+        status:
+          $ref: "#/components/schemas/OfferStatus"
+        message: { type: string }
+      required: [offerId, status, message]
+
+    OfferListItemResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        requestId: { type: integer, format: int64 }
+        price: { type: number }
+        currency: { type: string }
+        status:
+          $ref: "#/components/schemas/OfferStatus"
+        sentAt: { type: string, format: date-time, nullable: true }
+        respondedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    OfferDetailResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        requestId: { type: integer, format: int64 }
+        agencyAccountId: { type: integer, format: int64 }
+        price: { type: number }
+        currency: { type: string }
+        accommodationDetails: { type: string }
+        transportDetails: { type: string }
+        itinerarySummary: { type: string, nullable: true }
+        conditions: { type: string, nullable: true }
+        attachmentUrl: { type: string, nullable: true }
+        feedbackMessage: { type: string, nullable: true }
+        status:
+          $ref: "#/components/schemas/OfferStatus"
+        sentAt: { type: string, format: date-time, nullable: true }
+        respondedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    MarkNotificationsReadRequest:
+      type: object
+      properties:
+        notificationIds:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+            format: int64
+            minimum: 1
+      required: [notificationIds]
+
+    NotificationResponse:
+      type: object
+      properties:
+        notificationId: { type: integer, format: int64, nullable: true }
+        message: { type: string }
+      required: [message]
+
+    NotificationListItemResponse:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        type:
+          $ref: "#/components/schemas/NotificationType"
+        title: { type: string }
+        message: { type: string }
+        isRead: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        readAt: { type: string, format: date-time, nullable: true }
+
+    UnreadNotificationsCountResponse:
+      type: object
+      properties:
+        count: { type: integer, format: int64 }
+      required: [count]
+
+    PageTravelRequestListItemResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/TravelRequestListItemResponse"
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        last: { type: boolean }
+      required: [content, page, size, totalElements, totalPages, last]
+
+    PageOfferListItemResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/OfferListItemResponse"
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        last: { type: boolean }
+      required: [content, page, size, totalElements, totalPages, last]
+
+    PageNotificationListItemResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationListItemResponse"
+        page: { type: integer }
+        size: { type: integer }
+        totalElements: { type: integer, format: int64 }
+        totalPages: { type: integer }
+        last: { type: boolean }
+      required: [content, page, size, totalElements, totalPages, last]

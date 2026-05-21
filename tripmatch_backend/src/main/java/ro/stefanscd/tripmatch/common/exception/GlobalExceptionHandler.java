@@ -32,4 +32,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleForbidden(ForbiddenException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
     }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<?> handleConflict(ConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(ServiceUnavailableException.class)
+    public ResponseEntity<?> handleServiceUnavailable(ServiceUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(ex.getMessage());
+    }
 }

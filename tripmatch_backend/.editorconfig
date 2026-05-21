@@ -1,0 +1,10 @@
+root = true
+
+[*]
+charset = utf-8
+
+[*.java]
+charset = utf-8
+
+[*.sql]
+charset = utf-8

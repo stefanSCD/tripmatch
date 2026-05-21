@@ -6,8 +6,10 @@ import lombok.Setter;
 @Getter
 @Setter
 public class AuthResponse {
+    private Long accountId;
     private String message;
-    public AuthResponse(String message){
+    public AuthResponse(Long accountId, String message){
         this.message = message;
+        this.accountId = accountId;
     }
 }

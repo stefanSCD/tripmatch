@@ -41,6 +41,10 @@ public class AuthService {
         Role role = roleRepository.findByName(request.getRole())
                 .orElseThrow(() -> new BadRequestException("Role not found."));
 
+        if ("ADMIN".equalsIgnoreCase(role.getName())) {
+            throw new BadRequestException("Admin accounts cannot be registered publicly.");
+        }
+
         Account account = new Account();
         account.setEmail(request.getEmail());
         account.setPasswordHash(passwordEncoder.encode(request.getPassword()));
@@ -54,7 +58,7 @@ public class AuthService {
         Profile profile = getProfile(request, account, role);
         profileRepository.save(profile);
 
-        return new AuthResponse("Account registered successfully!");
+        return new AuthResponse(account.getId(),"Account registered successfully!");
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -76,7 +80,7 @@ public class AuthService {
 
         account.setLastLoginAt(LocalDateTime.now());
         accountRepository.save(account);
-        return new AuthResponse("Login successful.");
+        return new AuthResponse(account.getId(), "Login successful.");
     }
 
     private static @NonNull Profile getProfile(RegisterRequest request, Account account, Role role) {
